@@ -4,6 +4,12 @@
 #
 # Copyright (c) 2013 Nyr. Released under the MIT License.
 
+# Default parameters
+
+: ${KEYSIZE:=2048}
+: ${DAYS:=3650}
+
+erflags="--keysize=$KEYSIZE --days=$DAYS"
 
 # Detect Debian users running the script with "sh" instead of bash
 if readlink /proc/$$/exe | grep -q "dash"; then
@@ -71,7 +77,7 @@ if [[ -e /etc/openvpn/server.conf ]]; then
 			echo "Please, use one word only, no special characters."
 			read -p "Client name: " -e CLIENT
 			cd /etc/openvpn/easy-rsa/
-			./easyrsa build-client-full $CLIENT nopass
+			./easyrsa $erflags build-client-full $CLIENT nopass
 			# Generates the custom client.ovpn
 			newclient "$CLIENT"
 			echo
@@ -100,8 +106,8 @@ if [[ -e /etc/openvpn/server.conf ]]; then
 			read -p "Do you really want to revoke access for client $CLIENT? [y/N]: " -e REVOKE
 			if [[ "$REVOKE" = 'y' || "$REVOKE" = 'Y' ]]; then
 				cd /etc/openvpn/easy-rsa/
-				./easyrsa --batch revoke $CLIENT
-				EASYRSA_CRL_DAYS=3650 ./easyrsa gen-crl
+				./easyrsa $erflags --batch revoke $CLIENT
+				./easyrsa $erflags gen-crl
 				rm -f pki/reqs/$CLIENT.req
 				rm -f pki/private/$CLIENT.key
 				rm -f pki/issued/$CLIENT.crt
@@ -233,12 +239,12 @@ else
 	rm -f ~/easyrsa.tgz
 	cd /etc/openvpn/easy-rsa/
 	# Create the PKI, set up the CA, the DH params and the server + client certificates
-	./easyrsa init-pki
-	./easyrsa --batch build-ca nopass
-	./easyrsa gen-dh
-	./easyrsa build-server-full server nopass
-	./easyrsa build-client-full $CLIENT nopass
-	EASYRSA_CRL_DAYS=3650 ./easyrsa gen-crl
+	./easyrsa $erflags init-pki
+	./easyrsa $erflags --batch build-ca nopass
+	./easyrsa $erflags gen-dh
+	./easyrsa $erflags build-server-full server nopass
+	./easyrsa $erflags build-client-full $CLIENT nopass
+	./easyrsa $erflags gen-crl
 	# Move the stuff we need
 	cp pki/ca.crt pki/private/ca.key pki/dh.pem pki/issued/server.crt pki/private/server.key pki/crl.pem /etc/openvpn
 	# CRL is read with each client connection, when OpenVPN is dropped to nobody
@@ -255,6 +261,7 @@ ca ca.crt
 cert server.crt
 key server.key
 dh dh.pem
+crl-verify crl.pem
 auth SHA512
 tls-auth ta.key 0
 topology subnet
@@ -301,8 +308,7 @@ group $GROUPNAME
 persist-key
 persist-tun
 status openvpn-status.log
-verb 3
-crl-verify crl.pem" >> /etc/openvpn/server.conf
+verb 3" >> /etc/openvpn/server.conf
 	# Enable net.ipv4.ip_forward for the system
 	sed -i '/\<net.ipv4.ip_forward\>/c\net.ipv4.ip_forward=1' /etc/sysctl.conf
 	if ! grep -q "\<net.ipv4.ip_forward\>" /etc/sysctl.conf; then
